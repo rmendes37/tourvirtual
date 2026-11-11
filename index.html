@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tour Virtual pela Escola</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f4f7f6;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        header {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .tour-container {
+            width: 100%;
+            max-width: 900px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            overflow: hidden;
+            padding: 20px;
+        }
+
+        .video-wrapper {
+            position: relative;
+            padding-bottom: 56.25%; /* Proporção 16:9 */
+            padding-top: 25px;
+            height: 0;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #000;
+        }
+
+        .video-wrapper iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .playlist-buttons, .navigation-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        h3 {
+            font-size: 1.1rem;
+            color: #34495e;
+            margin-bottom: 5px;
+        }
+
+        .btn {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        /* Botões de vídeos do mesmo ambiente */
+        .btn-video {
+            background-color: #3498db;
+            color: white;
+        }
+        .btn-video:hover, .btn-video.active {
+            background-color: #2980b9;
+        }
+
+        /* Botões de navegação para ir para outra sala */
+        .btn-nav {
+            background-color: #2ecc71;
+            color: white;
+        }
+        .btn-nav:hover {
+            background-color: #27ae60;
+        }
+        
+        .section-block {
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1 id="school-title">Tour Virtual da Escola</h1>
+        <p>Explore as nossas instalações navegando pelos ambientes abaixo.</p>
+    </header>
+
+    <main class="tour-container">
+        <!-- O player do YouTube fica aqui -->
+        <div class="video-wrapper">
+            <iframe id="video-player" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        </div>
+
+        <div class="controls">
+            <!-- Alternar entre vídeos do mesmo ambiente (Ex: Pátio - Vista 1, Vista 2) -->
+            <div class="section-block" id="playlist-section" style="display: none;">
+                <h3 id="playlist-title">Ângulos/Vídeos disponíveis neste ambiente:</h3>
+                <div class="playlist-buttons" id="playlist-container"></div>
+            </div>
+
+            <!-- Botões para mudar de ambiente (Ex: Ir para biblioteca, Ir para a quadra) -->
+            <div class="section-block">
+                <h3>Mudar de Ambiente:</h3>
+                <div class="navigation-buttons" id="navigation-container"></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // CONFIGURAÇÃO DO TOUR (Substitua pelos IDs dos seus vídeos do YouTube)
+        // IMPORTANTE: Use apenas o ID do vídeo (o código final após o "v=" ou "youtu.be/")
+        const dadosDoTour = {
+            entrada: {
+                nome: "Entrada Principal",
+                videos: [
+                    { titulo: "Fachada da Escola", id: "dQw4w9WgXcQ" } // Exemplo de ID do YouTube
+                ],
+                conexoes: ["patio", "secretaria"]
+            },
+            patio: {
+                nome: "Pátio Central",
+                videos: [
+                    { titulo: "Visão Geral do Pátio", id: "dQw4w9WgXcQ" },
+                    { titulo: "Área de Convivência", id: "dQw4w9WgXcQ" } // Exemplo de múltiplos vídeos
+                ],
+                conexoes: ["entrada", "biblioteca", "quadra"]
+            },
+            secretaria: {
+                nome: "Secretaria e Atendimento",
+                videos: [
+                    { titulo: "Conheça a Secretaria", id: "dQw4w9WgXcQ" }
+                ],
+                conexoes: ["entrada"]
+            },
+            biblioteca: {
+                nome: "Biblioteca",
+                videos: [
+                    { titulo: "Tour pela Biblioteca", id: "dQw4w9WgXcQ" }
+                ],
+                conexoes: ["patio"]
+            },
+            quadra: {
+                nome: "Quadra Poliesportiva",
+                videos: [
+                    { titulo: "Nossa Área de Esportes", id: "dQw4w9WgXcQ" }
+                ],
+                conexoes: ["patio"]
+            }
+        };
+
+        // Elementos da Página
+        const player = document.getElementById('video-player');
+        const playlistSection = document.getElementById('playlist-section');
+        const playlistContainer = document.getElementById('playlist-container');
+        const navigationContainer = document.getElementById('navigation-container');
+        const playlistTitle = document.getElementById('playlist-title');
+
+        // Função para carregar um ambiente na tela
+        function carregarAmbiente(idAmbiente) {
+            const ambiente = dadosDoTour[idAmbiente];
+            if (!ambiente) return;
+
+            // 1. Carrega o primeiro vídeo do ambiente por padrão
+            mudarVideo(ambiente.videos[0].id);
+
+            // 2. Renderiza a playlist se houver mais de um vídeo
+            playlistContainer.innerHTML = "";
+            if (ambiente.videos.length > 1) {
+                playlistSection.style.display = "block";
+                ambiente.videos.forEach((vid, index) => {
+                    const btn = document.createElement('button');
+                    btn.className = `btn btn-video ${index === 0 ? 'active' : ''}`;
+                    btn.innerText = vid.titulo;
+                    btn.onclick = function() {
+                        // Remove ativo dos outros e adiciona neste
+                        document.querySelectorAll('.btn-video').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        mudarVideo(vid.id);
+                    };
+                    playlistContainer.appendChild(btn);
+                });
+            } else {
+                playlistSection.style.display = "none";
+            }
+
+            // 3. Renderiza os botões de navegação para outros ambientes conectados
+            navigationContainer.innerHTML = "";
+            ambiente.conexoes.forEach(conexaoId => {
+                const destino = dadosDoTour[conexaoId];
+                if (destino) {
+                    const btn = document.createElement('button');
+                    btn.className = "btn btn-nav";
+                    btn.innerText = `Ir para: ${destino.nome}`;
+                    btn.onclick = () => carregarAmbiente(conexaoId);
+                    navigationContainer.appendChild(btn);
+                }
+            });
+        }
+
+        // Função auxiliar para trocar o src do iframe do YouTube
+        function mudarVideo(idVideo) {
+            // "rel=0" impede que o YouTube recomende vídeos de outros canais no final
+            player.src = `https://youtube.com{idVideo}?rel=0`;
+        }
+
+        // Iniciar o tour automaticamente no ambiente "entrada" ao carregar a página
+        window.onload = function() {
+            carregarAmbiente('entrada');
+        };
+    </script>
+</body>
+</html>
